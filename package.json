@@ -2,7 +2,7 @@
   "name": "vsday",
   "displayName": "VSDay — Font Size & Day/Night/Eye-Saving/High Contrast Modes",
   "description": "Scale the font size of every VS Code surface with one keystroke, and switch between Day, Night, Eye-Saving and High Contrast appearance modes.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "agilebotanist",
   "license": "MIT",
   "author": "Andrey Sadovykh",
@@ -64,6 +64,11 @@
       {
         "command": "vsday.captureBaseline",
         "title": "Use Current Font Sizes as the New 100%",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.toggleScaleStrategy",
+        "title": "Switch Scaling Strategy (Text-First / Uniform)",
         "category": "VSDay"
       },
       {
@@ -147,6 +152,20 @@
     "configuration": {
       "title": "VSDay",
       "properties": {
+        "vsday.scaleStrategy": {
+          "type": "string",
+          "enum": [
+            "textFirst",
+            "uniform"
+          ],
+          "enumDescriptions": [
+            "Font settings carry the scale, with a small window.zoomLevel nudge for the workbench chrome. Precise per-surface control, but panes with no font-size setting (Extensions view, Explorer, Settings UI, most extension webviews) barely change.",
+            "window.zoomLevel carries the whole scale and font sizes stay at their baseline. Every pane scales identically — extension views and webviews included — and no layout breaks, at the cost of padding and icons growing too."
+          ],
+          "default": "uniform",
+          "markdownDescription": "How a scale step is delivered.\n\n- `uniform` (default) — `#window.zoomLevel#` does the scaling, at a per-step amount derived from `#vsday.fontScale.ratio#`, and font sizes stay at their baseline. **Everything** scales together: editor, terminal, Explorer, Extensions view, Settings UI, tab labels and extension webviews, layouts included. The cost is that padding and icons grow too, so slightly less fits on screen.\n- `textFirst` — font settings do the scaling, with a small zoom nudge for chrome. Sharper text and precise per-surface control, but VS Code gives no font size to workbench chrome or to most extension views, so those lag behind, and a font-scaled webview can outgrow a layout built for 13px text.\n\nChanging this re-applies the current scale immediately.",
+          "scope": "application"
+        },
         "vsday.fontScale.step": {
           "type": "integer",
           "default": 0,

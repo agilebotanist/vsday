@@ -1,11 +1,13 @@
 import { CONFIG, DEFAULTS } from './config';
 import {
+  ScaleStrategy,
   clampStep,
   computeFontWrites,
   resolveBaseline,
   scalePercentLabel,
   scaledSize,
   zoomLevelForStep,
+  zoomPerStepForRatio,
 } from './fontScale';
 import { EDITOR_FONT_SIZE, FontTarget, WINDOW_ZOOM_LEVEL, resolveFontTargets } from './fontTargets';
 import { Logger } from './logging';
@@ -15,6 +17,7 @@ export interface FontScaleState {
   readonly step: number;
   readonly percentLabel: string;
   readonly editorFontSize: number;
+  readonly strategy: ScaleStrategy;
 }
 
 /**
@@ -54,6 +57,20 @@ export class FontScaleController {
   private ratio(): number {
     const ratio = this.settings.getOr<number>(CONFIG.ratio, DEFAULTS.ratio);
     return Number.isFinite(ratio) && ratio > 1 ? ratio : DEFAULTS.ratio;
+  }
+
+  strategy(): ScaleStrategy {
+    return this.settings.getOr<string>(CONFIG.scaleStrategy, DEFAULTS.scaleStrategy) === 'textFirst'
+      ? 'textFirst'
+      : 'uniform';
+  }
+
+  /** Flips between the two strategies and re-applies the current step under the new one. */
+  async toggleStrategy(): Promise<ScaleStrategy> {
+    const next: ScaleStrategy = this.strategy() === 'uniform' ? 'textFirst' : 'uniform';
+    await this.settings.update(CONFIG.scaleStrategy, next);
+    await this.applyStep(this.currentStep());
+    return next;
   }
 
   private storedBaselines(): Record<string, number> {
@@ -129,16 +146,23 @@ export class FontScaleController {
     const baselines = await this.ensureBaselines(targets);
     const ratio = this.ratio();
 
-    const writes = computeFontWrites({ targets, baselines, ratio, step });
+    // In `uniform` mode the fonts are still *written*, but at step 0 — that is what returns
+    // them to the baseline (and, by the rule in writeSetting, removes the ones that match
+    // their default) when switching strategies. Zoom then carries the whole scale.
+    const strategy = this.strategy();
+    const fontStep = strategy === 'uniform' ? 0 : step;
+
+    const writes = computeFontWrites({ targets, baselines, ratio, step: fontStep });
     for (const write of writes) {
       await this.writeSetting(write.setting, write.value, write.baselineFallback);
     }
 
-    await this.applyZoom(baselines, step);
+    await this.applyZoom(baselines, step, strategy, ratio);
     await this.settings.update(CONFIG.step, step);
 
     this.logger.info(
-      `Applied step ${step} (${scalePercentLabel(ratio, step)}) to ${writes.length} setting(s)`
+      `Applied step ${step} (${scalePercentLabel(ratio, step)}, ${strategy}) to ` +
+        `${writes.length} setting(s)`
     );
     return step;
   }
@@ -167,17 +191,69 @@ export class FontScaleController {
 
   private async applyZoom(
     baselines: Readonly<Record<string, number>>,
-    step: number
+    step: number,
+    strategy: ScaleStrategy,
+    ratio: number
   ): Promise<void> {
+    const baseline = baselines[WINDOW_ZOOM_LEVEL] ?? 0;
+
+    // `uniform` ignores both zoom settings: zoom *is* the scale here, and the per-step
+    // amount is derived from `ratio` so a step feels the same under either strategy.
+    if (strategy === 'uniform') {
+      await this.writeSetting(
+        WINDOW_ZOOM_LEVEL,
+        zoomLevelForStep(baseline, step, zoomPerStepForRatio(ratio), true)
+      );
+      return;
+    }
+
     const enabled = this.settings.getOr<boolean>(CONFIG.uiZoomEnabled, DEFAULTS.uiZoomEnabled);
     const perStep = this.settings.getOr<number>(CONFIG.uiZoomPerStep, DEFAULTS.uiZoomPerStep);
-    const baseline = baselines[WINDOW_ZOOM_LEVEL] ?? 0;
 
     const level = zoomLevelForStep(baseline, step, perStep, enabled);
     if (level === undefined) {
       return;
     }
     await this.writeSetting(WINDOW_ZOOM_LEVEL, level);
+  }
+
+  /**
+   * Brings the settings into line with the current step and strategy, writing only if
+   * something is actually out of line.
+   *
+   * Called on activation, where three things can have left the state half-applied: an
+   * upgrade that added a target (a surface that has never been scaled), a strategy change
+   * made by editing settings.json directly, and a hand-edited size. The cheap common case —
+   * step 0, nothing pinned — writes nothing at all.
+   */
+  async reconcile(): Promise<boolean> {
+    const step = this.currentStep();
+    const targets = this.targets();
+    const baselines = this.storedBaselines();
+    const strategy = this.strategy();
+    const ratio = this.ratio();
+
+    if (step === 0 && Object.keys(baselines).length === 0) {
+      return false;
+    }
+
+    const fontStep = strategy === 'uniform' ? 0 : step;
+    const desired = computeFontWrites({ targets, baselines, ratio, step: fontStep });
+
+    const drifted = desired.some((write) => {
+      const natural =
+        this.settings.getDefaultValue<number>(write.setting) ?? write.baselineFallback;
+      const expected = write.value === natural ? undefined : write.value;
+      return this.settings.getUserValue<number>(write.setting) !== expected;
+    });
+
+    if (!drifted) {
+      return false;
+    }
+
+    this.logger.info(`Reconciling settings to step ${step} (${strategy})`);
+    await this.applyStep(step);
+    return true;
   }
 
   increase(): Promise<number> {
@@ -196,13 +272,17 @@ export class FontScaleController {
   state(): FontScaleState {
     const step = this.currentStep();
     const ratio = this.ratio();
+    const strategy = this.strategy();
     const baselines = this.storedBaselines();
     const baseline = baselines[EDITOR_FONT_SIZE];
+    // Under `uniform` the font settings sit at their baseline and zoom does the work, so
+    // the size reported here is the configured one, not the rendered one.
+    const fontStep = strategy === 'uniform' ? 0 : step;
     const editorFontSize =
       typeof baseline === 'number'
-        ? scaledSize(baseline, ratio, step, 4, 100)
+        ? scaledSize(baseline, ratio, fontStep, 4, 100)
         : (this.settings.get<number>(EDITOR_FONT_SIZE) ?? 14);
 
-    return { step, percentLabel: scalePercentLabel(ratio, step), editorFontSize };
+    return { step, percentLabel: scalePercentLabel(ratio, step), editorFontSize, strategy };
   }
 }

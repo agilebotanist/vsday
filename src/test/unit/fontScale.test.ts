@@ -1,11 +1,13 @@
 import * as assert from 'node:assert/strict';
 import {
+  ZOOM_LEVEL_FACTOR,
   clampStep,
   computeFontWrites,
   resolveBaseline,
   scalePercentLabel,
   scaledSize,
   zoomLevelForStep,
+  zoomPerStepForRatio,
 } from '../../fontScale';
 import { BUILT_IN_FONT_TARGETS, STEP_MAX, STEP_MIN } from '../../fontTargets';
 
@@ -197,6 +199,29 @@ describe('zoomLevelForStep', () => {
   it('rounds to two decimals to keep settings.json tidy', () => {
     assert.equal(zoomLevelForStep(0, 3, 0.1, true), 0.3);
     assert.equal(zoomLevelForStep(0, 7, 0.15, true), 1.05);
+  });
+});
+
+describe('zoomPerStepForRatio', () => {
+  it('makes a zoom step grow text by exactly the configured ratio (FR-22)', () => {
+    for (const ratio of [1.05, 1.1, 1.2, 1.25]) {
+      const perStep = zoomPerStepForRatio(ratio);
+      // One VS Code zoom level is a factor of 1.2, so 1.2 ** perStep must equal the ratio.
+      assert.ok(
+        Math.abs(ZOOM_LEVEL_FACTOR ** perStep - ratio) < 1e-9,
+        `ratio ${ratio}: 1.2 ** ${perStep} should be ${ratio}`
+      );
+    }
+  });
+
+  it('is about half a zoom level for the default 10% step', () => {
+    assert.ok(Math.abs(zoomPerStepForRatio(1.1) - 0.5223) < 0.001);
+  });
+
+  it('refuses a nonsensical ratio rather than producing NaN', () => {
+    assert.equal(zoomPerStepForRatio(1), 0);
+    assert.equal(zoomPerStepForRatio(0), 0);
+    assert.equal(zoomPerStepForRatio(Number.NaN), 0);
   });
 });
 

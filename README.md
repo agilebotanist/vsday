@@ -12,18 +12,24 @@ none at all. VSDay moves them together, and gives you an exact way back.
 
 ### One keystroke, every surface
 
-|              |                                                                                                                                                        |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Ctrl+Alt+=` | bigger — editor, terminal, debug console, Markdown preview, SCM input, chat body and code blocks, notebook cells, plus a nudge to the workbench chrome |
-| `Ctrl+Alt+-` | smaller                                                                                                                                                |
-| `Ctrl+Alt+0` | back to exactly the sizes you started with                                                                                                             |
+|              |                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Ctrl+Alt+=` | bigger — **all of VS Code**: editor, terminal, Explorer, Extensions view, Settings UI, tab labels, chat panels, extension views |
+| `Ctrl+Alt+-` | smaller                                                                                                                         |
+| `Ctrl+Alt+0` | back to exactly the sizes you started with                                                                                      |
 
 Changes are written to your **User** settings, so one keypress applies to **every open
 window** — no reload.
 
-Chat panels included: extension chat views (the Claude Code panel among them) take their
-body text from `chat.fontSize` and their code blocks from `chat.editor.fontSize`. VSDay
-scales both, so the whole conversation grows — not just the code in it.
+**Everywhere really means everywhere.** VS Code gives a font-size setting to only a handful
+of surfaces — the Explorer, Extensions view, Settings UI, tab labels and most extension
+panels have none. So by default VSDay scales through window zoom, which reaches the whole
+interface and scales layouts along with the text, instead of leaving two thirds of the
+workbench behind.
+
+Prefer native font sizes and sharper text, and don't mind the Explorer staying small? Run
+**VSDay: Switch Scaling Strategy** for `textFirst`, which scales the font settings
+per surface instead. Either way, one keystroke, and one to undo it.
 
 ### A status bar toolbar
 
@@ -85,6 +91,7 @@ All are available in the Command Palette under **VSDay**, and from the status ba
 | Reset Font Size to 100%                                 | `Ctrl+Alt+0`                      |
 | Set Font Scale…                                         |                                   |
 | Use Current Font Sizes as the New 100%                  |                                   |
+| Switch Scaling Strategy (Text-First / Uniform)          |                                   |
 | Cycle Appearance Mode                                   | `Ctrl+Alt+M`                      |
 | Switch to Day / Night / Eye-Saving / High Contrast Mode |                                   |
 | Set Appearance Mode…                                    |                                   |
@@ -100,32 +107,34 @@ On macOS, `Cmd+Alt` replaces `Ctrl+Alt`.
 
 ## Settings
 
-| Setting                           | Default         | Purpose                                                                |
-| --------------------------------- | --------------- | ---------------------------------------------------------------------- |
-| `vsday.fontScale.ratio`           | `1.1`           | Growth per step (`1.05` finer, `1.2` coarser)                          |
-| `vsday.fontScale.step`            | `0`             | Current position; `0` is 100%                                          |
-| `vsday.fontScale.baselines`       | captured        | Your own sizes, recorded as 100%                                       |
-| `vsday.fontScale.extraTargets`    | `[]`            | Extra font-size settings to scale                                      |
-| `vsday.uiZoom.enabled`            | `true`          | Scale workbench chrome via `window.zoomLevel`                          |
-| `vsday.uiZoom.perStep`            | `0.1`           | Zoom levels per step (kept small on purpose — zoom magnifies text too) |
-| `vsday.mode.<mode>.theme`         | see settings UI | Theme per mode; empty = pick the best installed                        |
-| `vsday.mode.<mode>.settings`      | see settings UI | Comfort settings per mode, reverted on leaving                         |
-| `vsday.mode.cycleOrder`           | all four        | Which modes `Ctrl+Alt+M` visits                                        |
-| `vsday.statusBar.enabled`         | `true`          | Show the status bar controls                                           |
-| `vsday.statusBar.showStepButtons` | `true`          | Show the `−` and `+` buttons                                           |
-| `vsday.statusBar.showModeButton`  | `true`          | Show the mode button (click = next mode)                               |
-| `vsday.statusBar.showResetDot`    | `auto`          | `auto` / `always` / `never`                                            |
+| Setting                           | Default         | Purpose                                                                                  |
+| --------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `vsday.scaleStrategy`             | `uniform`       | `uniform` scales everything by window zoom; `textFirst` scales font settings per surface |
+| `vsday.fontScale.ratio`           | `1.1`           | Growth per step (`1.05` finer, `1.2` coarser)                                            |
+| `vsday.fontScale.step`            | `0`             | Current position; `0` is 100%                                                            |
+| `vsday.fontScale.baselines`       | captured        | Your own sizes, recorded as 100%                                                         |
+| `vsday.fontScale.extraTargets`    | `[]`            | Extra font-size settings to scale                                                        |
+| `vsday.uiZoom.enabled`            | `true`          | Scale workbench chrome via `window.zoomLevel`                                            |
+| `vsday.uiZoom.perStep`            | `0.1`           | Zoom levels per step (kept small on purpose — zoom magnifies text too)                   |
+| `vsday.mode.<mode>.theme`         | see settings UI | Theme per mode; empty = pick the best installed                                          |
+| `vsday.mode.<mode>.settings`      | see settings UI | Comfort settings per mode, reverted on leaving                                           |
+| `vsday.mode.cycleOrder`           | all four        | Which modes `Ctrl+Alt+M` visits                                                          |
+| `vsday.statusBar.enabled`         | `true`          | Show the status bar controls                                                             |
+| `vsday.statusBar.showStepButtons` | `true`          | Show the `−` and `+` buttons                                                             |
+| `vsday.statusBar.showModeButton`  | `true`          | Show the mode button (click = next mode)                                                 |
+| `vsday.statusBar.showResetDot`    | `auto`          | `auto` / `always` / `never`                                                              |
 
 ## How it works, briefly
 
-VSDay records your font sizes once as a **baseline** and recomputes every scaled size from
-it, rather than nudging the current value up and down. That is why reset is exact, why five
-increases and five decreases land precisely where you began, and why typing a size into
+VSDay records your sizes once as a **baseline** and recomputes the scale from it, rather
+than nudging the current value up and down. That is why reset is exact, why five increases
+and five decreases land precisely where you began, and why typing a size into
 `settings.json` mid-session does not confuse it.
 
-Workbench chrome has no font size in VS Code, so `window.zoomLevel` is used for it — as a
-deliberately _small_ secondary nudge, because zoom magnifies text as well and a full zoom
-level per step would compound with the font increase.
+Most of VS Code has no font-size setting, so the default `uniform` strategy delivers the
+scale through `window.zoomLevel` — at a per-step amount derived from your `ratio`, so a
+step means the same thing either way — and leaves font sizes at their baseline. Scaling
+both would compound: zoom already magnifies text.
 
 Full reasoning in [docs/design.md](docs/design.md) and the
 [ADRs](docs/adr/).

@@ -2,15 +2,33 @@
 
 ## 1. The two things it does
 
-**Text size, everywhere at once.** One keystroke enlarges the editor, terminal, debug
-console, Markdown preview, source-control input, **chat panels** (body text and code
-blocks) and notebook cells together, and nudges the workbench chrome (tabs, side bar,
-status bar) along with them. Another puts everything back exactly as it was.
+**Text size, everywhere at once.** One keystroke enlarges **all of VS Code** — editor,
+terminal, Explorer, Extensions view, Settings UI, tab labels, chat panels, extension
+views — and another puts it back exactly as it was.
 
-Chat panels are worth calling out: extension chat views — the Claude Code panel among
-them — take their body text size from `chat.fontSize` and their code blocks from
-`chat.editor.fontSize`. VSDay scales both, so the whole conversation grows rather than just
-the code in it.
+### How "everywhere" works, and why it matters
+
+VS Code gives a font-size setting to only a handful of surfaces. The Explorer, the
+Extensions view, the Settings UI, tab labels, menus and most extension panels have **none**;
+the only lever that reaches them is window zoom. So VSDay has two strategies, and
+`vsday.scaleStrategy` picks between them:
+
+|                                                           | **`uniform`** (default) | **`textFirst`**       |
+| --------------------------------------------------------- | ----------------------- | --------------------- |
+| Editor, terminal, previews, chat                          | ✅                      | ✅                    |
+| Explorer, Extensions, Settings UI, tabs, extension panels | ✅                      | barely (~2% per step) |
+| Layouts can break at large sizes                          | no                      | yes — labels can clip |
+| Icons and padding                                         | grow too                | unchanged             |
+| Text crispness                                            | rendered at zoom        | native font size      |
+
+**`uniform` is the default** because it is the only one that actually reaches everything:
+window zoom scales the whole interface, containers included, so nothing is left behind and
+nothing overflows. Font sizes in your `settings.json` stay where they are — the zoom does
+the work.
+
+Prefer sharper text and don't mind the Explorer staying small? Run **VSDay: Switch Scaling
+Strategy**, or pick it from the status bar menu. It switches instantly and carries your
+current scale across.
 
 **Appearance modes.** Day, Night, Eye-Saving and High Contrast, each a colour theme plus a
 few comfort settings that are cleaned up when you leave the mode.
@@ -97,18 +115,19 @@ it off.
 
 ## 4. Tuning
 
-| Setting                           | Default  | What it does                                                               |
-| --------------------------------- | -------- | -------------------------------------------------------------------------- |
-| `vsday.fontScale.ratio`           | `1.1`    | How much each step grows. `1.05` for finer steps, `1.2` for coarser        |
-| `vsday.fontScale.baselines`       | captured | Your 100% per surface. Managed for you                                     |
-| `vsday.fontScale.extraTargets`    | `[]`     | Extra font-size settings to scale, e.g. from another extension             |
-| `vsday.uiZoom.enabled`            | `true`   | Whether chrome is scaled at all                                            |
-| `vsday.uiZoom.perStep`            | `0.1`    | Zoom levels per step. Raise to `0.2` to make chrome track the text closely |
-| `vsday.statusBar.enabled`         | `true`   | Show the status bar controls                                               |
-| `vsday.statusBar.showStepButtons` | `true`   | Show the `−` and `+` buttons                                               |
-| `vsday.statusBar.showModeButton`  | `true`   | Show the mode button (click = next mode)                                   |
-| `vsday.statusBar.showResetDot`    | `auto`   | `auto` / `always` / `never`                                                |
-| `vsday.mode.cycleOrder`           | all four | Which modes `Ctrl+Alt+M` visits, in order                                  |
+| Setting                           | Default   | What it does                                                                 |
+| --------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `vsday.scaleStrategy`             | `uniform` | `uniform` scales everything by window zoom; `textFirst` scales font settings |
+| `vsday.fontScale.ratio`           | `1.1`     | How much each step grows. `1.05` for finer steps, `1.2` for coarser          |
+| `vsday.fontScale.baselines`       | captured  | Your 100% per surface. Managed for you                                       |
+| `vsday.fontScale.extraTargets`    | `[]`      | Extra font-size settings to scale, e.g. from another extension               |
+| `vsday.uiZoom.enabled`            | `true`    | Whether chrome is scaled at all                                              |
+| `vsday.uiZoom.perStep`            | `0.1`     | Zoom levels per step. Raise to `0.2` to make chrome track the text closely   |
+| `vsday.statusBar.enabled`         | `true`    | Show the status bar controls                                                 |
+| `vsday.statusBar.showStepButtons` | `true`    | Show the `−` and `+` buttons                                                 |
+| `vsday.statusBar.showModeButton`  | `true`    | Show the mode button (click = next mode)                                     |
+| `vsday.statusBar.showResetDot`    | `auto`    | `auto` / `always` / `never`                                                  |
+| `vsday.mode.cycleOrder`           | all four  | Which modes `Ctrl+Alt+M` visits, in order                                    |
 
 ### Why "baselines"?
 
@@ -131,12 +150,15 @@ you want and run **VSDay: Use Current Font Sizes as the New 100%**.
 
 ## 6. Troubleshooting
 
-| Symptom                               | Cause and fix                                                                                                                                                                                                                                                                                                     |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Keybinding does nothing               | `AltGr` layout — see §2                                                                                                                                                                                                                                                                                           |
-| Sizes change but tabs/side bar do not | `vsday.uiZoom.enabled` is `false`, or `perStep` is `0`                                                                                                                                                                                                                                                            |
-| Everything grows too fast             | Lower `vsday.uiZoom.perStep`, or `vsday.fontScale.ratio`                                                                                                                                                                                                                                                          |
-| A mode does not change the theme      | `window.autoDetectColorScheme` (see §3), or the configured theme is not installed — VSDay warns and offers the picker                                                                                                                                                                                             |
-| One surface stayed small              | It may have no font-size setting in your VS Code version, or it is one of the inherit-from-editor settings that VSDay intentionally leaves alone. Check **VSDay: Show Log**                                                                                                                                       |
-| An extension's panel stayed small     | If it reads VS Code's standard font settings it is already covered. If it has a font-size setting of its own, add that setting id to `vsday.fontScale.extraTargets`. If it hardcodes its size, no extension can change it — raise `vsday.uiZoom.perStep` (say to `0.3`) so window zoom carries that panel instead |
-| I want to know what VSDay did         | **VSDay: Show Log** lists every write, skip and warning                                                                                                                                                                                                                                                           |
+| Symptom                                       | Cause and fix                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keybinding does nothing                       | `AltGr` layout — see §2                                                                                                                                                                                                                                                                                           |
+| Explorer / Extensions view / tabs do not grow | You are on the `textFirst` strategy, and VS Code gives those panes no font size. Run **VSDay: Switch Scaling Strategy** for `uniform` (see §1)                                                                                                                                                                    |
+| An extension panel's labels are clipped       | The same cause in reverse: `textFirst` grows text but not the containers around it. `uniform` scales both                                                                                                                                                                                                         |
+| Font sizes in `settings.json` never change    | Expected under `uniform` — zoom carries the scale. The status bar tooltip names the strategy in force                                                                                                                                                                                                             |
+| Sizes change but tabs/side bar do not         | Under `textFirst`: `vsday.uiZoom.enabled` is `false`, or `perStep` is `0`                                                                                                                                                                                                                                         |
+| Everything grows too fast                     | Lower `vsday.uiZoom.perStep`, or `vsday.fontScale.ratio`                                                                                                                                                                                                                                                          |
+| A mode does not change the theme              | `window.autoDetectColorScheme` (see §3), or the configured theme is not installed — VSDay warns and offers the picker                                                                                                                                                                                             |
+| One surface stayed small                      | It may have no font-size setting in your VS Code version, or it is one of the inherit-from-editor settings that VSDay intentionally leaves alone. Check **VSDay: Show Log**                                                                                                                                       |
+| An extension's panel stayed small             | If it reads VS Code's standard font settings it is already covered. If it has a font-size setting of its own, add that setting id to `vsday.fontScale.extraTargets`. If it hardcodes its size, no extension can change it — raise `vsday.uiZoom.perStep` (say to `0.3`) so window zoom carries that panel instead |
+| I want to know what VSDay did                 | **VSDay: Show Log** lists every write, skip and warning                                                                                                                                                                                                                                                           |

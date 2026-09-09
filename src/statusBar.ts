@@ -189,7 +189,11 @@ export class VSDayStatusBar implements vscode.Disposable {
   private buildScaleTooltip(font: FontScaleState, mode: ActiveMode): vscode.MarkdownString {
     const tooltip = new vscode.MarkdownString(undefined, true);
     tooltip.appendMarkdown(`**VSDay** — text at **${font.percentLabel}**\n\n`);
-    tooltip.appendMarkdown(`- Editor font size: \`${font.editorFontSize}px\`\n`);
+    tooltip.appendMarkdown(
+      font.strategy === 'uniform'
+        ? `- Scaling **everything** by window zoom (font sizes stay at \`${font.editorFontSize}px\`)\n`
+        : `- Scaling **text only** — editor font size \`${font.editorFontSize}px\`\n`
+    );
     tooltip.appendMarkdown(`- Scale step: \`${font.step}\`\n`);
     tooltip.appendMarkdown(
       `- Appearance mode: ${isModeId(mode) ? MODE_DESCRIPTORS[mode].label : 'none'}\n\n`

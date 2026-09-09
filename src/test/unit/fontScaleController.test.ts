@@ -5,9 +5,16 @@ import { BUILT_IN_FONT_TARGETS, WINDOW_ZOOM_LEVEL } from '../../fontTargets';
 import { createMemoryLogger } from '../../logging';
 import { FakeSettingsService } from '../support/fakeSettings';
 
-/** A fake configuration shaped like a stock VS Code install. */
+/**
+ * A fake configuration shaped like a stock VS Code install.
+ *
+ * The strategy is pinned to `textFirst` because most of these tests are about the font
+ * arithmetic, which is what that strategy exercises. The strategy suite below overrides it;
+ * the shipped default (`uniform`) is asserted there against a bare fake.
+ */
 function makeSettings(overrides: Record<string, unknown> = {}): FakeSettingsService {
   const settings = new FakeSettingsService({
+    [CONFIG.scaleStrategy]: 'textFirst',
     [CONFIG.step]: 0,
     [CONFIG.ratio]: 1.1,
     [CONFIG.baselines]: {},
@@ -174,6 +181,130 @@ describe('FontScaleController.applyStep', () => {
   });
 });
 
+describe('FontScaleController scaling strategy', () => {
+  it('defaults to scaling everything by window zoom (FR-22)', () => {
+    // A configuration that has never heard of the setting must still land on the shipped
+    // default, which is the whole point of the change.
+    const { controller } = makeController(new FakeSettingsService());
+    assert.equal(controller.strategy(), 'uniform');
+  });
+
+  it('uniform: zoom carries the scale and font sizes stay put (FR-22)', async () => {
+    const settings = makeSettings({ [CONFIG.scaleStrategy]: 'uniform' });
+    const { controller } = makeController(settings);
+
+    await controller.applyStep(5);
+
+    // Nothing pinned: the fonts are left on their own defaults…
+    assert.equal(settings.getUserValue('editor.fontSize'), undefined);
+    assert.equal(settings.getUserValue('chat.fontSize'), undefined);
+    // …and the zoom level carries all of it, at ratio-per-step.
+    const zoom = settings.get<number>(WINDOW_ZOOM_LEVEL)!;
+    assert.ok(Math.abs(1.2 ** zoom - 1.1 ** 5) < 0.01, `zoom ${zoom} should render 1.1**5`);
+  });
+
+  it('uniform: honours a size the user chose, since removing it would change it', async () => {
+    const settings = makeSettings({ [CONFIG.scaleStrategy]: 'uniform', 'editor.fontSize': 17 });
+    const { controller } = makeController(settings);
+
+    await controller.applyStep(4);
+
+    assert.equal(settings.get<number>('editor.fontSize'), 17);
+  });
+
+  it('textFirst: fonts carry the scale with only a nudge to zoom (FR-5)', async () => {
+    const settings = makeSettings();
+    const { controller } = makeController(settings);
+
+    await controller.applyStep(5);
+
+    assert.equal(settings.get<number>('editor.fontSize'), 23);
+    assert.equal(settings.get<number>(WINDOW_ZOOM_LEVEL), 0.5);
+  });
+
+  it('switching strategy re-applies the step, leaving nothing from the old one (FR-22)', async () => {
+    const settings = makeSettings();
+    const { controller } = makeController(settings);
+    await controller.applyStep(5);
+    assert.equal(settings.get<number>('editor.fontSize'), 23);
+
+    assert.equal(await controller.toggleStrategy(), 'uniform');
+
+    // The font sizes textFirst had written are gone, and zoom now carries the scale.
+    assert.equal(settings.getUserValue('editor.fontSize'), undefined);
+    assert.ok(settings.get<number>(WINDOW_ZOOM_LEVEL)! > 2);
+    assert.equal(controller.currentStep(), 5, 'the step itself is unchanged');
+
+    assert.equal(await controller.toggleStrategy(), 'textFirst');
+    assert.equal(settings.get<number>('editor.fontSize'), 23);
+    assert.equal(settings.get<number>(WINDOW_ZOOM_LEVEL), 0.5);
+  });
+
+  it('uniform: ignores uiZoom.enabled, since zoom is the only thing scaling', async () => {
+    const settings = makeSettings({
+      [CONFIG.scaleStrategy]: 'uniform',
+      [CONFIG.uiZoomEnabled]: false,
+    });
+    const { controller } = makeController(settings);
+
+    await controller.applyStep(3);
+
+    assert.ok(settings.get<number>(WINDOW_ZOOM_LEVEL)! > 0);
+  });
+
+  it('reset returns the zoom level to the user’s own under either strategy', async () => {
+    for (const strategy of ['uniform', 'textFirst']) {
+      const settings = makeSettings({ [CONFIG.scaleStrategy]: strategy, [WINDOW_ZOOM_LEVEL]: 1 });
+      const { controller } = makeController(settings);
+
+      await controller.applyStep(4);
+      await controller.reset();
+
+      assert.equal(settings.get<number>(WINDOW_ZOOM_LEVEL), 1, strategy);
+    }
+  });
+});
+
+describe('FontScaleController.reconcile', () => {
+  it('writes nothing when there is nothing to fix', async () => {
+    const settings = makeSettings();
+    const { controller } = makeController(settings);
+
+    assert.equal(await controller.reconcile(), false);
+    assert.equal(settings.writes.length, 0);
+  });
+
+  it('repairs a state left half-applied by an upgrade or a hand edit', async () => {
+    // As if a previous version had scaled the editor but never known about chat.fontSize,
+    // and the strategy has since become uniform: the editor size must come back down.
+    const settings = makeSettings({
+      [CONFIG.scaleStrategy]: 'uniform',
+      [CONFIG.step]: 5,
+      [CONFIG.baselines]: { 'editor.fontSize': 14, 'window.zoomLevel': 0 },
+      'editor.fontSize': 23,
+    });
+    const { controller } = makeController(settings);
+
+    assert.equal(await controller.reconcile(), true);
+
+    assert.equal(settings.getUserValue('editor.fontSize'), undefined);
+    assert.ok(settings.get<number>(WINDOW_ZOOM_LEVEL)! > 2);
+  });
+
+  it('is idempotent — a second pass finds nothing to do', async () => {
+    const settings = makeSettings({
+      [CONFIG.scaleStrategy]: 'uniform',
+      [CONFIG.step]: 3,
+      [CONFIG.baselines]: { 'editor.fontSize': 14, 'window.zoomLevel': 0 },
+      'editor.fontSize': 19,
+    });
+    const { controller } = makeController(settings);
+
+    assert.equal(await controller.reconcile(), true);
+    assert.equal(await controller.reconcile(), false);
+  });
+});
+
 describe('FontScaleController and chat surfaces', () => {
   it('scales chat body text even though the setting is unset (FR-18)', async () => {
     const settings = makeSettings();
@@ -300,11 +431,21 @@ describe('FontScaleController.state', () => {
     const settings = makeSettings();
     const { controller } = makeController(settings);
 
-    assert.deepEqual(controller.state(), { step: 0, percentLabel: '100%', editorFontSize: 14 });
+    assert.deepEqual(controller.state(), {
+      step: 0,
+      percentLabel: '100%',
+      editorFontSize: 14,
+      strategy: 'textFirst',
+    });
 
     await controller.applyStep(2);
 
-    assert.deepEqual(controller.state(), { step: 2, percentLabel: '121%', editorFontSize: 17 });
+    assert.deepEqual(controller.state(), {
+      step: 2,
+      percentLabel: '121%',
+      editorFontSize: 17,
+      strategy: 'textFirst',
+    });
   });
 
   it('works before any baseline has been captured', () => {
@@ -312,5 +453,17 @@ describe('FontScaleController.state', () => {
     const { controller } = makeController(settings);
 
     assert.equal(controller.state().editorFontSize, 14);
+  });
+
+  it('reports the configured size, not the zoomed one, under uniform scaling (FR-22)', async () => {
+    const settings = makeSettings({ [CONFIG.scaleStrategy]: 'uniform' });
+    const { controller } = makeController(settings);
+
+    await controller.applyStep(4);
+    const state = controller.state();
+
+    assert.equal(state.percentLabel, '146%', 'the scale is real, and reported');
+    assert.equal(state.editorFontSize, 14, 'but the font setting itself has not moved');
+    assert.equal(state.strategy, 'uniform');
   });
 });

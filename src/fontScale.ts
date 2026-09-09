@@ -9,8 +9,39 @@
  */
 import { FontTarget, STEP_MAX, STEP_MIN, ZOOM_LEVEL_MAX, ZOOM_LEVEL_MIN } from './fontTargets';
 
+/**
+ * How a scale step is delivered.
+ *
+ * - `textFirst` — font settings carry the scale, with a small `window.zoomLevel` nudge so
+ *   workbench chrome does not fall behind. Precise control per surface, but panes with no
+ *   font-size setting (the Extensions view, Explorer, Settings UI, most extension
+ *   webviews) only get the nudge, and a font-scaled webview can outgrow a layout built for
+ *   13px text.
+ * - `uniform` — `window.zoomLevel` carries the whole scale and font settings stay at their
+ *   baseline. Every pane scales identically, containers included, so nothing is left behind
+ *   and no layout breaks; the cost is that padding and icons grow too, so less fits on
+ *   screen.
+ */
+export type ScaleStrategy = 'textFirst' | 'uniform';
+
+/** One VS Code zoom level is a factor of 1.2. */
+export const ZOOM_LEVEL_FACTOR = 1.2;
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Zoom levels per step that make zoom grow text at exactly `ratio` per step.
+ *
+ * Solves `1.2 ** x === ratio`, so a `uniform` step feels the same size as a `textFirst`
+ * step and the percentage on the status bar stays truthful under either strategy.
+ */
+export function zoomPerStepForRatio(ratio: number): number {
+  if (!Number.isFinite(ratio) || ratio <= 1) {
+    return 0;
+  }
+  return Math.log(ratio) / Math.log(ZOOM_LEVEL_FACTOR);
 }
 
 /** Keeps a step inside the supported range. */

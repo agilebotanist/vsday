@@ -2,6 +2,7 @@ import { ModeId } from './appearanceModes';
 
 /** Every setting key VSDay reads or writes, in one place. */
 export const CONFIG = {
+  scaleStrategy: 'vsday.scaleStrategy',
   step: 'vsday.fontScale.step',
   ratio: 'vsday.fontScale.ratio',
   baselines: 'vsday.fontScale.baselines',
@@ -37,4 +38,5 @@ export const DEFAULTS = {
   ratio: 1.1,
   uiZoomPerStep: 0.1,
   uiZoomEnabled: true,
+  scaleStrategy: 'uniform',
 } as const;

@@ -6,6 +6,36 @@ All notable changes to VSDay are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-09
+
+### Changed
+
+- **Scaling now reaches all of VS Code, and does so by default.** New setting
+  `vsday.scaleStrategy`, defaulting to `uniform`: the scale is delivered through
+  `window.zoomLevel` (at a per-step amount derived from `vsday.fontScale.ratio`, so a step
+  means the same as before) and font sizes stay at their baseline.
+
+  Why: VS Code gives a font-size setting to only a handful of surfaces. The Explorer,
+  Extensions view, Settings UI, tab labels, menus and most extension panels have **none**,
+  so font-based scaling left them at ~2% per step while the editor grew 10% — and a
+  font-scaled webview could outgrow a layout built for 13px text, clipping its labels.
+  Window zoom scales the whole interface, containers included.
+
+  The previous behaviour is available as `vsday.scaleStrategy: "textFirst"` — sharper text
+  and per-surface control, with the Explorer and extension views lagging behind. Switch
+  either way with **VSDay: Switch Scaling Strategy**, or from the status bar menu; the
+  current scale carries across.
+
+### Added
+
+- **VSDay: Switch Scaling Strategy** command, plus an entry in the status bar menu showing
+  which strategy is in force. The status bar tooltip names it too.
+- Settings are **reconciled on activation**: if the recorded step and the actual settings
+  disagree — after this upgrade, after a hand edit, or after a strategy changed directly in
+  `settings.json` — VSDay brings them into line, writing only where they differ. Upgrading
+  from 0.2.x therefore clears the font sizes the old behaviour had written and moves the
+  scale to zoom, with no action needed.
+
 ## [0.2.0] — 2026-09-09
 
 ### Fixed
@@ -78,6 +108,7 @@ First release.
 - Documentation: requirements with test traceability, design, six ADRs, test strategy with
   a manual checklist, and a user guide.
 
-[Unreleased]: https://github.com/agilebotanist/vsday/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/agilebotanist/vsday/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/agilebotanist/vsday/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/agilebotanist/vsday/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/agilebotanist/vsday/releases/tag/v0.1.0

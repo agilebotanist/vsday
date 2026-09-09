@@ -6,6 +6,7 @@ export const EXTENSION_ID = 'agilebotanist.vsday';
 
 /** Settings the suite writes; wiped between tests so cases cannot bleed into each other. */
 export const TOUCHED_SETTINGS = [
+  'vsday.scaleStrategy',
   'vsday.fontScale.step',
   'vsday.fontScale.ratio',
   'vsday.fontScale.baselines',

@@ -137,6 +137,43 @@ Two behaviours come out of it:
   follow `editor.fontSize` when they are `0` or unset. Pinning them would freeze a size
   the user never chose, and would also stop them tracking future scale changes.
 
+### 3.3b Two ways to deliver a step
+
+`vsday.scaleStrategy` decides what a step actually does. This is the most consequential
+setting in the extension, and the default changed in 0.3.0 — see
+[ADR-0008](adr/0008-uniform-zoom-by-default.md).
+
+|                                                                  | `uniform` (default)                                          | `textFirst`               |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------- |
+| Carries the scale                                                | `window.zoomLevel`                                           | the font settings         |
+| Font settings                                                    | left at baseline                                             | scaled by `ratio ** step` |
+| Zoom per step                                                    | `log(ratio) / log(1.2)` — derived, so a step matches `ratio` | `uiZoom.perStep` (0.1)    |
+| Editor, terminal, previews, chat                                 | ✅                                                           | ✅                        |
+| Explorer, Extensions view, Settings UI, tabs, extension webviews | ✅                                                           | ~2% per step only         |
+| Can overflow a webview layout                                    | no — containers scale too                                    | yes, above ~16px          |
+| Icons and padding                                                | grow with the text                                           | unchanged                 |
+
+The reason `uniform` exists is constraint C-1: most of VS Code has no font-size setting, so
+no amount of font scaling reaches it. The reason it leaves fonts alone is compounding — zoom
+already magnifies text, so scaling both would give ~1.2× _per step_ on the surfaces that do
+have a setting.
+
+Implementation is one line of branching in `applyStep`: `uniform` computes the font writes
+at **step 0** — which is what returns them to baseline when switching strategies — and hands
+the step to zoom instead.
+
+### 3.3c Reconciliation on activation
+
+A step means different things under the two strategies, so the recorded step and the actual
+settings can fall out of line: an upgrade changes the default strategy or adds a target, or
+someone edits `settings.json` between sessions. `reconcile()` computes the writes the
+recorded step implies and applies them **only if something differs**; at step 0 with nothing
+captured it returns immediately without writing.
+
+It also runs when the strategy setting _changes_ — but only when the strategy has been set,
+never when it has been cleared. A cleared value is what a bulk settings reset looks like
+part-way through, and writing sizes back into the middle of one fights whoever is clearing.
+
 ### 3.4 Workbench chrome
 
 Chrome has no font-size setting, so `window.zoomLevel` is the only lever (constraint C-1).
@@ -255,6 +292,7 @@ guarded, so one rejected setting cannot abort a mode switch halfway.
 
 | Key                               | Type     | Default        | Scope       |
 | --------------------------------- | -------- | -------------- | ----------- |
+| `vsday.scaleStrategy`             | enum     | `uniform`      | application |
 | `vsday.fontScale.step`            | integer  | `0`            | application |
 | `vsday.fontScale.ratio`           | number   | `1.1`          | application |
 | `vsday.fontScale.baselines`       | object   | `{}`           | application |

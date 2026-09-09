@@ -76,6 +76,9 @@ describe('VSDay activation and contributions', () => {
 
   it('does not clobber a font size the user set by hand before first use (FR-3)', async () => {
     await resetSettings();
+    // Font sizes are only written under the text-first strategy; uniform scaling leaves
+    // them alone entirely, which is covered in uniformScale.test.ts.
+    await write('vsday.scaleStrategy', 'textFirst');
     await write('editor.fontSize', 17);
 
     await vscode.commands.executeCommand('vsday.increaseFontSize');

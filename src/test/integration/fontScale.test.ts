@@ -20,6 +20,9 @@ describe('Font scaling end to end', () => {
 
   beforeEach(async () => {
     await resetSettings();
+    // These cases are about the per-surface font writes, so they pin the text-first
+    // strategy. The uniform strategy — the shipped default — has its own suite below.
+    await write('vsday.scaleStrategy', 'textFirst');
   });
 
   after(async () => {

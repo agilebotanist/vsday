@@ -47,6 +47,14 @@ export function registerCommands(deps: CommandDependencies): vscode.Disposable[]
       );
     }),
     register('vsday.setFontScale', () => pickFontScale(deps)),
+    register('vsday.toggleScaleStrategy', async () => {
+      const strategy = await fontScale.toggleStrategy();
+      void vscode.window.showInformationMessage(
+        strategy === 'uniform'
+          ? 'VSDay: scaling everything by window zoom — every pane and extension view grows together.'
+          : 'VSDay: scaling font settings — sharper text, but panes without a font size (Explorer, Extensions view) will lag behind.'
+      );
+    }),
     register('vsday.setAppearanceMode', () => pickAppearanceMode(deps)),
     register('vsday.cycleAppearanceMode', () => appearance.cycle()),
     register('vsday.setDayMode', () => appearance.applyMode('day')),
@@ -170,6 +178,17 @@ async function showMenu(deps: CommandDependencies): Promise<void> {
     {
       label: '$(pin) Use current sizes as the new 100%',
       command: 'vsday.captureBaseline',
+    },
+    {
+      label:
+        state.strategy === 'uniform'
+          ? '$(zoom-in) Scaling: everything (window zoom)'
+          : '$(text-size) Scaling: text only (font settings)',
+      description:
+        state.strategy === 'uniform'
+          ? 'click to scale font settings instead — sharper text, but Explorer and extension views lag'
+          : 'click to scale everything instead — every pane and extension view grows together',
+      command: 'vsday.toggleScaleStrategy',
     },
     { label: 'Appearance', kind: vscode.QuickPickItemKind.Separator },
     ...MODE_IDS.map((id) => ({
