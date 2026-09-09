@@ -1,0 +1,23 @@
+{
+  "all": true,
+  "src": ["out"],
+  "include": ["out/**/*.js"],
+  "//": "The gate covers the logic layer only — the pure modules plus the controller that reaches settings through the SettingsService seam. Everything excluded below either needs a real extension host (settingsService, appearanceController, statusBar, commands, extension, logger) or is declarative plumbing with no behaviour (config, logging); those are covered by the integration suite instead. See docs/testing.md.",
+  "exclude": [
+    "out/test/**",
+    "out/extension.js",
+    "out/statusBar.js",
+    "out/commands.js",
+    "out/logger.js",
+    "out/logging.js",
+    "out/config.js",
+    "out/settingsService.js",
+    "out/appearanceController.js"
+  ],
+  "reporter": ["text", "lcov"],
+  "check-coverage": true,
+  "lines": 90,
+  "statements": 90,
+  "functions": 90,
+  "branches": 90
+}

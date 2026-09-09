@@ -1,0 +1,385 @@
+{
+  "name": "vsday",
+  "displayName": "VSDay — Font Size & Day/Night/Eye-Saving/High Contrast Modes",
+  "description": "Scale the font size of every VS Code surface with one keystroke, and switch between Day, Night, Eye-Saving and High Contrast appearance modes.",
+  "version": "0.2.0",
+  "publisher": "agilebotanist",
+  "license": "MIT",
+  "author": "Andrey Sadovykh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agilebotanist/vsday.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agilebotanist/vsday/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Themes"
+  ],
+  "keywords": [
+    "accessibility",
+    "font size",
+    "zoom",
+    "dark mode",
+    "eye strain",
+    "readability",
+    "high contrast",
+    "low vision"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#22201D",
+    "theme": "dark"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "vsday.increaseFontSize",
+        "title": "Increase Font Size Everywhere",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.decreaseFontSize",
+        "title": "Decrease Font Size Everywhere",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.resetFontSize",
+        "title": "Reset Font Size to 100%",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setFontScale",
+        "title": "Set Font Scale…",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.captureBaseline",
+        "title": "Use Current Font Sizes as the New 100%",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setAppearanceMode",
+        "title": "Set Appearance Mode…",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.cycleAppearanceMode",
+        "title": "Cycle Appearance Mode (Day → Night → Eye-Saving → High Contrast)",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setDayMode",
+        "title": "Switch to Day Mode",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setNightMode",
+        "title": "Switch to Night Mode",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setEyeSavingMode",
+        "title": "Switch to Eye-Saving Mode",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.setHighContrastMode",
+        "title": "Switch to High Contrast Mode",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.resetAll",
+        "title": "Reset Everything (Font Size and Appearance Mode)",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.showMenu",
+        "title": "Show Menu",
+        "category": "VSDay"
+      },
+      {
+        "command": "vsday.showLog",
+        "title": "Show Log",
+        "category": "VSDay"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vsday.increaseFontSize",
+        "key": "ctrl+alt+=",
+        "mac": "cmd+alt+="
+      },
+      {
+        "command": "vsday.increaseFontSize",
+        "key": "ctrl+alt+numpad_add",
+        "mac": "cmd+alt+numpad_add"
+      },
+      {
+        "command": "vsday.decreaseFontSize",
+        "key": "ctrl+alt+-",
+        "mac": "cmd+alt+-"
+      },
+      {
+        "command": "vsday.decreaseFontSize",
+        "key": "ctrl+alt+numpad_subtract",
+        "mac": "cmd+alt+numpad_subtract"
+      },
+      {
+        "command": "vsday.resetFontSize",
+        "key": "ctrl+alt+0",
+        "mac": "cmd+alt+0"
+      },
+      {
+        "command": "vsday.cycleAppearanceMode",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      }
+    ],
+    "configuration": {
+      "title": "VSDay",
+      "properties": {
+        "vsday.fontScale.step": {
+          "type": "integer",
+          "default": 0,
+          "minimum": -20,
+          "maximum": 20,
+          "markdownDescription": "Current font scale step. `0` means 100% (your captured baseline). Managed by the VSDay commands; you can also set it by hand.",
+          "scope": "application"
+        },
+        "vsday.fontScale.ratio": {
+          "type": "number",
+          "default": 1.1,
+          "minimum": 1.01,
+          "maximum": 1.5,
+          "markdownDescription": "Growth factor applied per scale step. `1.1` means each step is about 10% larger. Sizes are always recomputed from the baseline, so changing this never accumulates rounding drift.",
+          "scope": "application"
+        },
+        "vsday.fontScale.baselines": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "number"
+          },
+          "markdownDescription": "The 100% font size for each target setting, captured from your own configuration the first time you scale. Run **VSDay: Use Current Font Sizes as the New 100%** to re-capture.",
+          "scope": "application"
+        },
+        "vsday.fontScale.extraTargets": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "Additional font-size settings to scale alongside the built-in ones, e.g. `myExtension.fontSize`. Unregistered settings are skipped with a warning in the VSDay log.",
+          "scope": "application"
+        },
+        "vsday.uiZoom.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Also nudge `#window.zoomLevel#` when scaling, so workbench chrome (tabs, side bar, status bar) keeps up with the text. VS Code offers no font-size setting for chrome, so zoom is the only lever.",
+          "scope": "application"
+        },
+        "vsday.uiZoom.perStep": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "Zoom levels added per font scale step. Kept small on purpose: zoom already magnifies text, so a full zoom level per step would compound with the font increase. One full zoom level is +20%.",
+          "scope": "application"
+        },
+        "vsday.mode.active": {
+          "type": "string",
+          "enum": [
+            "none",
+            "day",
+            "night",
+            "eyeSaving",
+            "highContrast"
+          ],
+          "enumDescriptions": [
+            "No VSDay appearance mode applied.",
+            "Day mode.",
+            "Night mode.",
+            "Eye-saving mode.",
+            "High contrast mode."
+          ],
+          "default": "none",
+          "description": "The appearance mode VSDay currently has applied.",
+          "scope": "application"
+        },
+        "vsday.mode.cycleOrder": {
+          "type": "array",
+          "default": [
+            "day",
+            "night",
+            "eyeSaving",
+            "highContrast"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "day",
+              "night",
+              "eyeSaving",
+              "highContrast"
+            ]
+          },
+          "description": "Order in which the Cycle Appearance Mode command rotates through modes. Remove an entry to skip that mode when cycling.",
+          "scope": "application"
+        },
+        "vsday.mode.day.theme": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Colour theme applied by Day mode, named exactly as in **Preferences: Color Theme**. Leave empty to use the best light theme this VS Code version ships (`Light 2026`, `Light Modern`, `Default Light Modern`, …) — VS Code has renamed its default themes across releases, so the automatic choice is the portable one.",
+          "scope": "application"
+        },
+        "vsday.mode.day.settings": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Extra settings applied while Day mode is active, and reverted to their previous values when you leave it.",
+          "scope": "application"
+        },
+        "vsday.mode.night.theme": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Colour theme applied by Night mode. Leave empty to use the best dark theme this VS Code version ships (`Dark 2026`, `Dark Modern`, `Default Dark Modern`, …), or set `VSDay Warm Dark` for a low-blue-light dark theme.",
+          "scope": "application"
+        },
+        "vsday.mode.night.settings": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Extra settings applied while Night mode is active, and reverted to their previous values when you leave it.",
+          "scope": "application"
+        },
+        "vsday.mode.eyeSaving.theme": {
+          "type": "string",
+          "default": "VSDay Sepia (Warm Light)",
+          "markdownDescription": "Colour theme applied by Eye-Saving mode. Defaults to the warm, low-blue-light theme bundled with VSDay.",
+          "scope": "application"
+        },
+        "vsday.mode.eyeSaving.settings": {
+          "type": "object",
+          "default": {
+            "editor.lineHeight": 1.6,
+            "editor.cursorBlinking": "solid",
+            "editor.renderLineHighlight": "none"
+          },
+          "markdownDescription": "Extra settings applied while Eye-Saving mode is active, and reverted to their previous values when you leave it.",
+          "scope": "application"
+        },
+        "vsday.mode.highContrast.theme": {
+          "type": "string",
+          "default": "VSDay Sepia High Contrast",
+          "markdownDescription": "Colour theme applied by High Contrast mode. Defaults to the warm high-contrast theme bundled with VSDay — the sepia ground with near-black text and hard borders. Set `Default High Contrast Light` or `Default High Contrast` for VS Code's own.",
+          "scope": "application"
+        },
+        "vsday.mode.highContrast.settings": {
+          "type": "object",
+          "default": {
+            "editor.fontWeight": "600",
+            "editor.cursorBlinking": "solid",
+            "editor.cursorWidth": 3
+          },
+          "markdownDescription": "Extra settings applied while High Contrast mode is active, and reverted to their previous values when you leave it. Heavier text and a wider cursor do as much for legibility as the colours do.",
+          "scope": "application"
+        },
+        "vsday.statusBar.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the VSDay status bar controls.",
+          "scope": "application"
+        },
+        "vsday.statusBar.showStepButtons": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the `−` and `+` buttons either side of the scale percentage in the status bar.",
+          "scope": "application"
+        },
+        "vsday.statusBar.showModeButton": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the appearance mode button in the status bar. Clicking it switches to the next mode in `#vsday.mode.cycleOrder#`.",
+          "scope": "application"
+        },
+        "vsday.statusBar.showResetDot": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Show the reset dot only while the font scale is away from 100%.",
+            "Always show the reset dot.",
+            "Never show the reset dot."
+          ],
+          "default": "auto",
+          "description": "When to show the one-click reset dot next to the VSDay status bar item.",
+          "scope": "application"
+        }
+      }
+    },
+    "themes": [
+      {
+        "label": "VSDay Sepia (Warm Light)",
+        "uiTheme": "vs",
+        "path": "./themes/vsday-sepia-color-theme.json"
+      },
+      {
+        "label": "VSDay Warm Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/vsday-warm-dark-color-theme.json"
+      },
+      {
+        "label": "VSDay Sepia High Contrast",
+        "uiTheme": "hc-light",
+        "path": "./themes/vsday-sepia-high-contrast-color-theme.json"
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "node -e \"fs.rmSync('out',{recursive:true,force:true});fs.rmSync('dist',{recursive:true,force:true})\"",
+    "compile": "tsc -p ./",
+    "watch": "tsc -p ./ -w",
+    "typecheck": "tsc -p ./ --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.md\" \"docs/**/*.md\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.md\" \"docs/**/*.md\"",
+    "icon": "node scripts/generate-icon.js 256",
+    "bundle": "node esbuild.js",
+    "bundle:prod": "node esbuild.js --production",
+    "test:unit": "npm run compile && mocha \"out/test/unit/**/*.test.js\"",
+    "test:coverage": "npm run compile && c8 --config .c8rc.json mocha \"out/test/unit/**/*.test.js\"",
+    "test:integration": "npm run compile && npm run bundle && vscode-test",
+    "test": "npm run test:unit && npm run test:integration",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test",
+    "vscode:prepublish": "npm run bundle:prod",
+    "package": "vsce package --out dist/",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.5.0",
+    "@types/vscode": "~1.85.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.9.2",
+    "c8": "^12.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "mocha": "^12.0.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0"
+  }
+}

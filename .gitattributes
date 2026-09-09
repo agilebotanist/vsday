@@ -1,0 +1,8 @@
+# Prettier is configured with endOfLine: lf, so checkouts must not be CRLF-converted —
+# otherwise `npm run format:check` fails on a Windows checkout (and in Windows CI).
+* text=auto eol=lf
+
+# Binary
+*.png binary
+*.vsix binary
+*.ttf binary

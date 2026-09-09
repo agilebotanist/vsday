@@ -1,0 +1,29 @@
+# Tooling working directory (also git-ignored; .vscodeignore is a separate list)
+.claude/**
+
+# Source and build inputs — only dist/ ships
+src/**
+out/**
+scripts/**
+docs/**
+.github/**
+.vscode/**
+.vscode-test/**
+.vscode-test-profile/**
+coverage/**
+node_modules/**
+
+esbuild.js
+tsconfig.json
+eslint.config.mjs
+.eslintcache
+.prettierrc.json
+.mocharc.json
+.c8rc.json
+.vscode-test.mjs
+.gitignore
+.gitattributes
+CONTRIBUTING.md
+**/*.map
+**/*.ts
+**/*.vsix

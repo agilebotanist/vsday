@@ -1,0 +1,23 @@
+# Claude Code working directory
+.claude/
+
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Packaged extension
+*.vsix
+
+# Test / coverage artifacts
+.vscode-test/
+.vscode-test-profile/
+coverage/
+.nyc_output/
+
+# OS / editor noise
+Thumbs.db
+.DS_Store

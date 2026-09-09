@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and publish the VSIX
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          xvfb-run -a npm run test:integration
+
+      - name: Package
+        run: npm run package
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.vsix
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+      # Marketplace publishing is intentionally not wired up: it needs a publisher account
+      # and a Personal Access Token stored as the VSCE_PAT secret. To enable it, create
+      # both and uncomment the step below (and see CONTRIBUTING.md).
+      #
+      # - name: Publish to the VS Code Marketplace
+      #   run: npx @vscode/vsce publish --packagePath dist/*.vsix
+      #   env:
+      #     VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      #
+      # Open VSX (for VSCodium and friends) needs an OVSX_PAT secret:
+      #
+      # - name: Publish to Open VSX
+      #   run: npx ovsx publish dist/*.vsix
+      #   env:
+      #     OVSX_PAT: ${{ secrets.OVSX_PAT }}
